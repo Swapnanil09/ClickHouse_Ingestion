@@ -74,6 +74,7 @@ export default function App() {
   const [logStartDate, setLogStartDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [logEndDate, setLogEndDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [selectedChartIndex, setSelectedChartIndex] = useState<number | null>(null);
+  const [chartTimeOption, setChartTimeOption] = useState<'detailed' | 'dateOnly'>('detailed');
   
   const showToast = (message: string, type: 'success' | 'danger' = 'success') => {
     const id = Date.now();
@@ -109,6 +110,43 @@ export default function App() {
       showToast(err.message, 'danger');
       throw err;
     }
+  };
+
+  const formatToIST = (dateInput: string | Date | undefined | null) => {
+    if (!dateInput) return "N/A";
+    try {
+      const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
+      const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'Asia/Kolkata',
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', second: '2-digit',
+        hour12: false
+      });
+      const parts = formatter.formatToParts(date);
+      const partMap = Object.fromEntries(parts.map(p => [p.type, p.value]));
+      return `${partMap.year}-${partMap.month}-${partMap.day} ${partMap.hour}:${partMap.minute}:${partMap.second} (IST)`;
+    } catch (err) {
+      return String(dateInput);
+    }
+  };
+
+  const getISTComponents = (date: Date) => {
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Asia/Kolkata',
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+      hour12: false
+    });
+    const parts = formatter.formatToParts(date);
+    const partMap = Object.fromEntries(parts.map(p => [p.type, p.value]));
+    return {
+      hour: partMap.hour,
+      minute: partMap.minute,
+      second: partMap.second,
+      day: partMap.day,
+      month: partMap.month,
+      year: partMap.year
+    };
   };
 
   // Login handler
@@ -391,14 +429,24 @@ export default function App() {
       const failed = dayJobs.filter((j: any) => j.status === 'FAILED' || j.status === 'CANCELLED').length;
       
       let timestampLabel = "";
-      const pad = (n: number) => n.toString().padStart(2, '0');
+      const dayNameStr = days[d.getDay()] + (i === 0 ? " (Today)" : "");
       
       if (dayJobs.length > 0) {
         const sortedJobs = [...dayJobs].sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
         const latestDate = new Date(sortedJobs[0].created_at);
-        timestampLabel = `${pad(latestDate.getHours())}:${pad(latestDate.getMinutes())}:${pad(latestDate.getSeconds())} ${pad(latestDate.getDate())}/${pad(latestDate.getMonth() + 1)}`;
+        const ist = getISTComponents(latestDate);
+        if (chartTimeOption === 'detailed') {
+          timestampLabel = `${ist.hour}:${ist.minute}:${ist.second} ${ist.day}/${ist.month}`;
+        } else {
+          timestampLabel = `${ist.day}/${ist.month} ${days[d.getDay()]}`;
+        }
       } else {
-        timestampLabel = `00:00:00 ${pad(d.getDate())}/${pad(d.getMonth() + 1)}`;
+        const ist = getISTComponents(d);
+        if (chartTimeOption === 'detailed') {
+          timestampLabel = `00:00:00 ${ist.day}/${ist.month}`;
+        } else {
+          timestampLabel = `${ist.day}/${ist.month} ${days[d.getDay()]}`;
+        }
       }
       
       result.push({
@@ -407,7 +455,7 @@ export default function App() {
         completed,
         failed,
         quarantined,
-        dayName: days[d.getDay()] + (i === 0 ? " (Today)" : "")
+        dayName: dayNameStr
       });
     }
     return result;
@@ -708,7 +756,43 @@ export default function App() {
             {/* Custom SVG Charts */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '2rem' }}>
               <div className="table-container" style={{ padding: '1.5rem' }}>
-                <h3 className="table-title" style={{ marginBottom: '1rem' }}>Ingestion Executions (Last 7 Days)</h3>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                  <h3 className="table-title" style={{ margin: 0 }}>Ingestion Executions (Last 7 Days)</h3>
+                  <div style={{ display: 'flex', gap: '0.25rem', padding: '0.2rem', backgroundColor: 'var(--bg-secondary)', borderRadius: '0.25rem', border: '1px solid var(--border-color)' }}>
+                    <button 
+                      style={{ 
+                        padding: '0.25rem 0.5rem', 
+                        fontSize: '0.75rem', 
+                        border: 'none', 
+                        borderRadius: '0.2rem', 
+                        backgroundColor: chartTimeOption === 'detailed' ? 'var(--primary)' : 'transparent',
+                        color: chartTimeOption === 'detailed' ? '#fff' : 'var(--text-secondary)',
+                        cursor: 'pointer',
+                        fontWeight: 600,
+                        transition: 'all 0.2s'
+                      }}
+                      onClick={() => { setChartTimeOption('detailed'); setSelectedChartIndex(null); }}
+                    >
+                      Detailed
+                    </button>
+                    <button 
+                      style={{ 
+                        padding: '0.25rem 0.5rem', 
+                        fontSize: '0.75rem', 
+                        border: 'none', 
+                        borderRadius: '0.2rem', 
+                        backgroundColor: chartTimeOption === 'dateOnly' ? 'var(--primary)' : 'transparent',
+                        color: chartTimeOption === 'dateOnly' ? '#fff' : 'var(--text-secondary)',
+                        cursor: 'pointer',
+                        fontWeight: 600,
+                        transition: 'all 0.2s'
+                      }}
+                      onClick={() => { setChartTimeOption('dateOnly'); setSelectedChartIndex(null); }}
+                    >
+                      Daily/Monthly
+                    </button>
+                  </div>
+                </div>
                 <div style={{ height: '220px', position: 'relative', marginTop: '1rem' }}>
                   {jobs.length === 0 ? (
                     <div style={{ 
@@ -978,7 +1062,7 @@ export default function App() {
                           }`}>{job.reconciliation_status}</span>
                         </td>
                         <td style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                          {new Date(job.created_at).toLocaleTimeString()}
+                          {formatToIST(job.created_at)}
                         </td>
                         <td>
                           <button className="btn btn-secondary btn-sm" onClick={() => { setSelectedJobId(job.id); setCurrentPage("job-detail"); }}>
@@ -1161,7 +1245,7 @@ export default function App() {
                           <div><span style={{ color: 'var(--text-secondary)' }}>ClickHouse Inserted Count:</span> {run.backend_row_count} rows</div>
                         </div>
                         <div>
-                          <div style={{ marginBottom: '0.5rem' }}><span style={{ color: 'var(--text-secondary)' }}>Reconciled On:</span> {new Date(run.run_timestamp).toLocaleString()}</div>
+                          <div style={{ marginBottom: '0.5rem' }}><span style={{ color: 'var(--text-secondary)' }}>Reconciled On:</span> {formatToIST(run.run_timestamp)}</div>
                           {run.discrepancy_details && (
                             <div style={{ color: 'var(--danger)', fontWeight: 500 }}>
                               <span style={{ color: 'var(--text-secondary)' }}>Mismatches:</span><br/>
@@ -1264,7 +1348,7 @@ export default function App() {
                           <div key={hist.id} className="timeline-item">
                             <div className={dotClass}></div>
                             <div className="timeline-time">
-                              {new Date(hist.timestamp).toLocaleTimeString()} ({hist.actor})
+                              {formatToIST(hist.timestamp)} ({hist.actor})
                             </div>
                             <div className="timeline-content" style={{ fontWeight: isActive ? 600 : 400 }}>
                               {hist.new_state}
@@ -1578,7 +1662,7 @@ export default function App() {
                         </td>
                         <td>{job.target_database}.{job.target_table}</td>
                         <td style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                          {new Date(job.created_at).toLocaleString()}
+                          {formatToIST(job.created_at)}
                         </td>
                         <td style={{ display: 'flex', gap: '0.5rem' }}>
                           <button className="btn btn-primary btn-sm" onClick={() => handleRetryJob(job.id)}>
@@ -1626,7 +1710,7 @@ export default function App() {
                       <strong style={{ fontSize: '0.9rem' }}>{msStatus.email}</strong>
                     </div>
                     <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
-                      Auto-Polling active checking every 20 seconds. Token Expiry: {msStatus.expires_at ? new Date(msStatus.expires_at).toLocaleString() : "N/A"}
+                      Auto-Polling active checking every 20 seconds. Token Expiry: {msStatus.expires_at ? formatToIST(msStatus.expires_at) : "N/A"}
                     </div>
                   </div>
                   <button className="btn btn-secondary btn-sm" onClick={handleMsDisconnect}>
@@ -1724,7 +1808,7 @@ export default function App() {
               <div className="stat-card" style={{ padding: '1rem' }}>
                 <span className="stat-label" style={{ fontSize: '0.75rem' }}>Last Webhook Event</span>
                 <div style={{ marginTop: '0.25rem', fontSize: '0.8rem', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>
-                  {jobs.length > 0 ? `${jobs[0].id} (${new Date(jobs[0].created_at).toLocaleTimeString()})` : "No events"}
+                  {jobs.length > 0 ? `${jobs[0].id} (${formatToIST(jobs[0].created_at)})` : "No events"}
                 </div>
               </div>
               <div className="stat-card" style={{ padding: '1rem' }}>
@@ -1846,7 +1930,7 @@ export default function App() {
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
                           <span style={{ fontWeight: 600 }}>Recipient: {n.recipient}</span>
                           <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
-                            {new Date(n.timestamp).toLocaleTimeString()}
+                            {formatToIST(n.timestamp)}
                           </span>
                         </div>
                         <div style={{ fontWeight: 500, marginBottom: '0.5rem', color: 'var(--text-primary)' }}>
