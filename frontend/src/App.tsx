@@ -26,6 +26,16 @@ export default function App() {
   const [msTenantId, setMsTenantId] = useState("common");
   const [showMsManualConfig, setShowMsManualConfig] = useState(false);
   const [isSavingMsConfig, setIsSavingMsConfig] = useState(false);
+
+  // Workflow Custom Creation States
+  const [showWfForm, setShowWfForm] = useState(false);
+  const [wfName, setWfName] = useState("");
+  const [wfSubjectPattern, setWfSubjectPattern] = useState(".*upload_request.*");
+  const [wfAttachmentPattern, setWfAttachmentPattern] = useState(".*\\.xlsx");
+  const [wfAllowedSenders, setWfAllowedSenders] = useState("*");
+  const [wfTableRegex, setWfTableRegex] = useState("table:\\\\s*([a-zA-Z0-9_]+)");
+  const [wfMode, setWfMode] = useState("STRICT");
+  const [isCreatingWf, setIsCreatingWf] = useState(false);
   
   // Stats & Lists
   const [stats, setStats] = useState<any>(null);
@@ -301,6 +311,58 @@ export default function App() {
       }
     } catch (err: any) {
       setTestResult(`Failed: ${err.message}`);
+    }
+  };
+
+  // Create Custom Workflow Config
+  const handleCreateWorkflow = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!wfName) {
+      showToast("Please provide a rule name.", "danger");
+      return;
+    }
+    setIsCreatingWf(true);
+    try {
+      const data = await apiFetch("/workflows", {
+        method: "POST",
+        body: JSON.stringify({
+          name: wfName,
+          email_subject_pattern: wfSubjectPattern,
+          attachment_pattern: wfAttachmentPattern,
+          allowed_senders: wfAllowedSenders,
+          target_extraction_rules: { table_regex: wfTableRegex },
+          mode: wfMode
+        })
+      });
+      showToast(`Rule '${data.name}' registered successfully!`, "success");
+      
+      // Reset form
+      setWfName("");
+      setWfSubjectPattern(".*upload_request.*");
+      setWfAttachmentPattern(".*\\.xlsx");
+      setWfAllowedSenders("*");
+      setWfTableRegex("table:\\\\s*([a-zA-Z0-9_]+)");
+      setWfMode("STRICT");
+      setShowWfForm(false);
+      
+      // Refresh workflows list
+      refreshData();
+    } catch (err: any) {
+      showToast(err.message, "danger");
+    } finally {
+      setIsCreatingWf(false);
+    }
+  };
+
+  // Delete Workflow Config
+  const handleDeleteWorkflow = async (id: number) => {
+    if (!window.confirm("Are you sure you want to delete this routing protocol rule?")) return;
+    try {
+      await apiFetch(`/workflows/${id}`, { method: "DELETE" });
+      showToast("Routing rule deleted.", "success");
+      refreshData();
+    } catch (err: any) {
+      showToast(err.message, "danger");
     }
   };
 
@@ -1105,7 +1167,12 @@ export default function App() {
                 <div key={wf.id} style={{ border: '1px solid var(--border-color)', borderRadius: '0.75rem', padding: '1.5rem', marginBottom: '1rem', backgroundColor: 'rgba(18, 24, 38, 0.2)' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                     <h4 style={{ fontWeight: 600, fontSize: '1.1rem', color: 'var(--primary)' }}>{wf.name}</h4>
-                    <span className="badge badge-success">{wf.mode} validation mode</span>
+                    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                      <span className="badge badge-success">{wf.mode} validation mode</span>
+                      <button className="btn btn-danger btn-sm" style={{ padding: '0.25rem 0.5rem' }} onClick={() => handleDeleteWorkflow(wf.id)}>
+                        Delete
+                      </button>
+                    </div>
                   </div>
 
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', fontSize: '0.9rem' }}>
@@ -1121,9 +1188,87 @@ export default function App() {
                 </div>
               ))}
               
-              <button className="btn btn-secondary" onClick={() => showToast("Rule configurations locked for prototype")}>
-                + Register New Rule Config
-              </button>
+              <div style={{ marginTop: '1.5rem' }}>
+                <button className="btn btn-secondary" onClick={() => setShowWfForm(!showWfForm)}>
+                  {showWfForm ? "Hide Register Form" : "+ Register New Rule Config"}
+                </button>
+              </div>
+
+              {showWfForm && (
+                <form onSubmit={handleCreateWorkflow} style={{ border: '1px dashed var(--border-color)', borderRadius: '0.75rem', padding: '1.5rem', marginTop: '1.5rem', backgroundColor: 'var(--bg-secondary)' }}>
+                  <h4 style={{ fontSize: '1rem', color: 'var(--primary)', marginBottom: '1rem' }}>Register New Ingestion Rule & Validation Protocol</h4>
+                  
+                  <div className="form-group">
+                    <label className="form-label">Rule Name</label>
+                    <input 
+                      type="text" 
+                      className="form-input" 
+                      placeholder="e.g. Sales Department Pipeline" 
+                      value={wfName}
+                      onChange={e => setWfName(e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                    <div className="form-group">
+                      <label className="form-label">Email Subject Match Pattern (Regex)</label>
+                      <input 
+                        type="text" 
+                        className="form-input" 
+                        value={wfSubjectPattern}
+                        onChange={e => setWfSubjectPattern(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Attachment Pattern (Glob)</label>
+                      <input 
+                        type="text" 
+                        className="form-input" 
+                        value={wfAttachmentPattern}
+                        onChange={e => setWfAttachmentPattern(e.target.value)}
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                    <div className="form-group">
+                      <label className="form-label">Allowed Sender Addresses (Comma-separated or *)</label>
+                      <input 
+                        type="text" 
+                        className="form-input" 
+                        value={wfAllowedSenders}
+                        onChange={e => setWfAllowedSenders(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Destination Table Extraction Regex</label>
+                      <input 
+                        type="text" 
+                        className="form-input" 
+                        value={wfTableRegex}
+                        onChange={e => setWfTableRegex(e.target.value)}
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Validation Processing Mode</label>
+                    <select className="form-input" value={wfMode} onChange={e => setWfMode(e.target.value)}>
+                      <option value="STRICT">STRICT (Abort and quarantine on schema warnings)</option>
+                      <option value="RELAXED">RELAXED (Import valid rows, log validation warnings)</option>
+                    </select>
+                  </div>
+
+                  <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={isCreatingWf}>
+                    {isCreatingWf ? "Registering rule..." : "Register & Apply Ingestion Rule"}
+                  </button>
+                </form>
+              )}
             </div>
           </div>
         )}
