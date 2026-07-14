@@ -73,6 +73,7 @@ export default function App() {
   const [toasts, setToasts] = useState<any[]>([]);
   const [logStartDate, setLogStartDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [logEndDate, setLogEndDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [selectedChartIndex, setSelectedChartIndex] = useState<number | null>(null);
   
   const showToast = (message: string, type: 'success' | 'danger' = 'success') => {
     const id = Date.now();
@@ -369,35 +370,44 @@ export default function App() {
   };
 
   // Get active stats aggregated for the last 7 days
+  // Get active stats aggregated for the last 7 days
   const getWeeklyIngestionData = () => {
     const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-    const counts: { [key: string]: number } = {};
-    
-    // Initialize last 7 days with 0
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      counts[days[d.getDay()]] = 0;
-    }
-    
-    // Aggregate jobs
-    jobs.forEach((job: any) => {
-      const date = new Date(job.created_at);
-      const dayName = days[date.getDay()];
-      if (counts[dayName] !== undefined) {
-        counts[dayName] += 1;
-      }
-    });
-    
-    // Convert to array of { label, value } in chronological order
     const result = [];
+    
     for (let i = 6; i >= 0; i--) {
       const d = new Date();
       d.setDate(d.getDate() - i);
-      const dayName = days[d.getDay()];
+      const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0);
+      const dayEnd = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59);
+      
+      const dayJobs = jobs.filter((job: any) => {
+        const jobDate = new Date(job.created_at);
+        return jobDate >= dayStart && jobDate <= dayEnd;
+      });
+      
+      const completed = dayJobs.filter((j: any) => j.status === 'COMPLETED').length;
+      const quarantined = dayJobs.filter((j: any) => j.status === 'QUARANTINED').length;
+      const failed = dayJobs.filter((j: any) => j.status === 'FAILED' || j.status === 'CANCELLED').length;
+      
+      let timestampLabel = "";
+      const pad = (n: number) => n.toString().padStart(2, '0');
+      
+      if (dayJobs.length > 0) {
+        const sortedJobs = [...dayJobs].sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        const latestDate = new Date(sortedJobs[0].created_at);
+        timestampLabel = `${pad(latestDate.getHours())}:${pad(latestDate.getMinutes())}:${pad(latestDate.getSeconds())} ${pad(latestDate.getDate())}/${pad(latestDate.getMonth() + 1)}`;
+      } else {
+        timestampLabel = `00:00:00 ${pad(d.getDate())}/${pad(d.getMonth() + 1)}`;
+      }
+      
       result.push({
-        label: i === 0 ? `${dayName} (Today)` : dayName,
-        value: counts[dayName]
+        label: timestampLabel,
+        value: dayJobs.length,
+        completed,
+        failed,
+        quarantined,
+        dayName: days[d.getDay()] + (i === 0 ? " (Today)" : "")
       });
     }
     return result;
@@ -412,7 +422,7 @@ export default function App() {
     const points = weeklyData.map((d, index) => {
       const x = 50 + index * (380 / 6);
       const y = 140 - (d.value / maxVal) * 100;
-      return { x, y, value: d.value, label: d.label };
+      return { x, y, value: d.value, label: d.label, completed: d.completed, failed: d.failed, quarantined: d.quarantined, dayName: d.dayName };
     });
     
     const linePath = points.map((p, idx) => `${idx === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
@@ -747,22 +757,83 @@ export default function App() {
                         {/* Data points (circles) & values */}
                         {points.map((p, idx) => (
                           <g key={idx}>
-                            <circle cx={p.x} cy={p.y} r="4" fill="var(--primary)" stroke="var(--bg-primary)" strokeWidth="1.5" />
+                            <circle 
+                              cx={p.x} 
+                              cy={p.y} 
+                              r={selectedChartIndex === idx ? "6" : "4.5"} 
+                              fill={selectedChartIndex === idx ? "var(--warning)" : "var(--primary)"} 
+                              stroke={selectedChartIndex === idx ? "var(--text-primary)" : "var(--bg-primary)"} 
+                              strokeWidth="2" 
+                              style={{ cursor: 'pointer', transition: 'all 0.2s ease' }}
+                              onClick={() => setSelectedChartIndex(idx)}
+                            />
                             {p.value > 0 && (
                               <text x={p.x} y={p.y - 8} textAnchor="middle" fill="var(--text-primary)" fontSize="9" fontWeight="600">
                                 {p.value}
                               </text>
                             )}
-                            {/* X-Axis labels */}
-                            <text x={p.x} y="165" textAnchor="middle" fill="var(--text-secondary)" fontSize="9">
-                              {p.label}
-                            </text>
+                            {/* X-Axis labels (Split into two lines to look extremely clean) */}
+                            {(() => {
+                              const parts = p.label.split(' ');
+                              return (
+                                <g style={{ cursor: 'pointer' }} onClick={() => setSelectedChartIndex(idx)}>
+                                  <text x={p.x} y="165" textAnchor="middle" fill={selectedChartIndex === idx ? "var(--warning)" : "var(--text-secondary)"} fontSize="8" fontWeight="500">
+                                    {parts[0]}
+                                  </text>
+                                  <text x={p.x} y="177" textAnchor="middle" fill={selectedChartIndex === idx ? "var(--warning)" : "var(--text-muted)"} fontSize="7">
+                                    {parts[1]}
+                                  </text>
+                                </g>
+                              );
+                            })()}
                           </g>
                         ))}
                       </svg>
                     );
                   })()}
                 </div>
+
+                {/* Ingestion Status Breakdown Card for Clicked Dot */}
+                {selectedChartIndex !== null && (() => {
+                  const dataPoint = getWeeklyIngestionData()[selectedChartIndex];
+                  if (!dataPoint) return null;
+                  return (
+                    <div style={{ 
+                      marginTop: '0.75rem', 
+                      padding: '0.75rem 1rem', 
+                      backgroundColor: 'var(--bg-secondary)', 
+                      border: '1px solid var(--border-color)', 
+                      borderRadius: '0.5rem',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '0.5rem',
+                      animation: 'fadeIn 0.2s ease-out'
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
+                        <span style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--primary)' }}>
+                          📊 Ingestion Status Breakdown ({dataPoint.dayName})
+                        </span>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                          Run: {dataPoint.label}
+                        </span>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem', textAlign: 'center', marginTop: '0.25rem' }}>
+                        <div style={{ padding: '0.4rem', backgroundColor: 'rgba(34, 197, 94, 0.08)', borderRadius: '0.25rem', border: '1px solid rgba(34, 197, 94, 0.15)' }}>
+                          <div style={{ fontSize: '0.7rem', color: 'var(--success)' }}>Success</div>
+                          <div style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--success)' }}>{dataPoint.completed}</div>
+                        </div>
+                        <div style={{ padding: '0.4rem', backgroundColor: 'rgba(239, 68, 68, 0.08)', borderRadius: '0.25rem', border: '1px solid rgba(239, 68, 68, 0.15)' }}>
+                          <div style={{ fontSize: '0.7rem', color: 'var(--danger)' }}>Failures</div>
+                          <div style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--danger)' }}>{dataPoint.failed}</div>
+                        </div>
+                        <div style={{ padding: '0.4rem', backgroundColor: 'rgba(245, 158, 11, 0.08)', borderRadius: '0.25rem', border: '1px solid rgba(245, 158, 11, 0.15)' }}>
+                          <div style={{ fontSize: '0.7rem', color: 'var(--warning)' }}>Quarantined</div>
+                          <div style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--warning)' }}>{dataPoint.quarantined}</div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
                 <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.75rem' }}>
                   Active databases loaded: <b>{stats?.inserted_rows || 0}</b> rows total.
                 </p>
