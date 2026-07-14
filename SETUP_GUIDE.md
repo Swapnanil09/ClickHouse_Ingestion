@@ -341,10 +341,10 @@ To avoid manually building Microsoft Power Automate flows, the Ingestion Gateway
 
 The platform incorporates several industry-grade engineering practices designed to move beyond prototype stages and ensure secure, reliable production operations:
 
-### 10.1 ClickHouse Connection Password Encryption
-*   **Implementation**: All password properties submitted when creating or updating ClickHouse connections are automatically encrypted symmetrically before writing to the database metadata store.
-*   **Security standard**: Uses AES encryption via the Python `cryptography.fernet` library.
-*   **Key derivation**: The encryption key is derived deterministically from the server's `JWT_SECRET` (configured via `.env`). If the database credentials are leaked or exposed, the connection passwords remain fully secure. Decryption happens purely in memory during ingestion runs.
+### 10.1 Database & Integration Credentials Encryption
+*   **Implementation**: All sensitive credentials saved in the database—including ClickHouse connection passwords and Microsoft App Client Secrets—are automatically encrypted symmetrically using a shared security utility module (`backend/app/utils/security.py`) before committing to SQLite/Postgres.
+*   **Security standard**: Uses symmetric AES encryption via the Python `cryptography.fernet` library.
+*   **Key derivation**: The encryption key is derived deterministically from the server's `JWT_SECRET` (configured via `.env`). If the database files are leaked or exposed, the connection passwords and Azure API credentials remain fully secure. Decryption happens purely in memory during token refreshes and data ingestion runs.
 
 ### 10.2 API Rate Limiting Middleware
 *   **Implementation**: An ASGI HTTP rate limiting middleware operates on all incoming API requests (e.g. webhook triggers, auth logins).

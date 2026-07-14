@@ -11,6 +11,7 @@ from backend.app.database import SessionLocal
 from backend.app.models import MicrosoftCredential, IngestionJob, JobStateHistory, AuditLog, WorkflowConfig, MicrosoftAppConfig
 from backend.app.services.worker_service import WorkerService
 from backend.app.config import settings
+from backend.app.utils.security import decrypt_password
 
 logger = logging.getLogger("app.services.ms_graph")
 
@@ -63,7 +64,7 @@ class MSGraphService:
             # Query active app config from DB
             config = db.query(MicrosoftAppConfig).filter(MicrosoftAppConfig.is_active == True).first()
             client_id = config.client_id if config else settings.MICROSOFT_CLIENT_ID
-            client_secret = config.client_secret if config else settings.MICROSOFT_CLIENT_SECRET
+            client_secret = decrypt_password(config.client_secret) if config else settings.MICROSOFT_CLIENT_SECRET
             tenant_id = config.tenant_id if config else settings.MICROSOFT_TENANT_ID
 
             # If using mock keys, just simulate refresh

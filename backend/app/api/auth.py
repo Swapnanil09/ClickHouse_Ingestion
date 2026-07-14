@@ -9,6 +9,7 @@ from backend.app.database import get_db
 from backend.app.models import User
 from backend.app.schemas import UserCreate, UserLogin, Token, UserResponse
 from backend.app.config import settings
+from backend.app.utils.security import encrypt_password, decrypt_password
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
@@ -132,7 +133,7 @@ def save_microsoft_config(config_in: MicrosoftAppConfigSchema, db: Session = Dep
     # Create new
     config = MicrosoftAppConfig(
         client_id=config_in.client_id,
-        client_secret=config_in.client_secret,
+        client_secret=encrypt_password(config_in.client_secret),
         tenant_id=config_in.tenant_id,
         redirect_uri=config_in.redirect_uri,
         is_active=True
@@ -171,7 +172,7 @@ def microsoft_callback(code: str, db: Session = Depends(get_db)):
     config = db.query(MicrosoftAppConfig).filter(MicrosoftAppConfig.is_active == True).first()
     
     client_id = config.client_id if config else settings.MICROSOFT_CLIENT_ID
-    client_secret = config.client_secret if config else settings.MICROSOFT_CLIENT_SECRET
+    client_secret = decrypt_password(config.client_secret) if config else settings.MICROSOFT_CLIENT_SECRET
     tenant_id = config.tenant_id if config else settings.MICROSOFT_TENANT_ID
     redirect_uri = config.redirect_uri if config else settings.MICROSOFT_REDIRECT_URI
     

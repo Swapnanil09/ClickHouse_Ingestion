@@ -16,7 +16,7 @@ from backend.app.services.validation_service import ValidationService
 from backend.app.services.reconciliation_service import ReconciliationService
 from backend.app.services.notification_service import NotificationService
 from backend.app.config import settings
-from backend.app.api.connections import decrypt_password
+from backend.app.utils.security import decrypt_password
 
 logger = logging.getLogger("app.services.worker")
 
