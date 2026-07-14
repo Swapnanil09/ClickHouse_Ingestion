@@ -8,7 +8,7 @@ import threading
 import requests
 from sqlalchemy.orm import Session
 from backend.app.database import SessionLocal
-from backend.app.models import MicrosoftCredential, IngestionJob, JobStateHistory, AuditLog, WorkflowConfig
+from backend.app.models import MicrosoftCredential, IngestionJob, JobStateHistory, AuditLog, WorkflowConfig, MicrosoftAppConfig
 from backend.app.services.worker_service import WorkerService
 from backend.app.config import settings
 
@@ -59,8 +59,15 @@ class MSGraphService:
         # Check expiration (with a 2-minute buffer)
         if cred.expires_at <= datetime.datetime.utcnow() + datetime.timedelta(minutes=2):
             logger.info("MS Graph Access Token expired or near expiry. Refreshing...")
+            
+            # Query active app config from DB
+            config = db.query(MicrosoftAppConfig).filter(MicrosoftAppConfig.is_active == True).first()
+            client_id = config.client_id if config else settings.MICROSOFT_CLIENT_ID
+            client_secret = config.client_secret if config else settings.MICROSOFT_CLIENT_SECRET
+            tenant_id = config.tenant_id if config else settings.MICROSOFT_TENANT_ID
+
             # If using mock keys, just simulate refresh
-            if settings.MICROSOFT_CLIENT_ID == "mock-client-id-12345":
+            if client_id == "mock-client-id-12345":
                 cred.access_token = f"refreshed-mock-access-token-{uuid.uuid4().hex[:6]}"
                 cred.expires_at = datetime.datetime.utcnow() + datetime.timedelta(hours=1)
                 db.commit()
@@ -68,12 +75,12 @@ class MSGraphService:
 
             # Real OAuth refresh request
             try:
-                token_url = f"https://login.microsoftonline.com/{settings.MICROSOFT_TENANT_ID}/oauth2/v2.0/token"
+                token_url = f"https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token"
                 payload = {
-                    "client_id": settings.MICROSOFT_CLIENT_ID,
+                    "client_id": client_id,
                     "grant_type": "refresh_token",
                     "refresh_token": cred.refresh_token,
-                    "client_secret": settings.MICROSOFT_CLIENT_SECRET
+                    "client_secret": client_secret
                 }
                 res = requests.post(token_url, data=payload, timeout=10)
                 if res.status_code == 200:

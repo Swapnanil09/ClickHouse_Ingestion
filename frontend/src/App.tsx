@@ -20,6 +20,13 @@ export default function App() {
   const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "dark");
   const [msStatus, setMsStatus] = useState<{ connected: boolean, email: string | null, expires_at?: string } | null>(null);
   
+  // Microsoft Dynamic Configurations
+  const [msClientId, setMsClientId] = useState("");
+  const [msClientSecret, setMsClientSecret] = useState("");
+  const [msTenantId, setMsTenantId] = useState("common");
+  const [showMsManualConfig, setShowMsManualConfig] = useState(false);
+  const [isSavingMsConfig, setIsSavingMsConfig] = useState(false);
+  
   // Stats & Lists
   const [stats, setStats] = useState<any>(null);
   const [jobs, setJobs] = useState<any[]>([]);
@@ -215,6 +222,50 @@ export default function App() {
       setMsStatus({ connected: false, email: null });
     } catch (err: any) {
       showToast(err.message, "danger");
+    }
+  };
+
+  // Load Microsoft OAuth config
+  useEffect(() => {
+    if (token) {
+      apiFetch("/auth/microsoft/config")
+        .then(data => {
+          if (data) {
+            setMsClientId(data.client_id === "mock-client-id-12345" ? "" : data.client_id);
+            setMsTenantId(data.tenant_id || "common");
+          }
+        })
+        .catch(() => {});
+    }
+  }, [token]);
+
+  // Save MS configurations and redirect to login page
+  const handleSaveAndConnect = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!msClientId || !msClientSecret) {
+      showToast("Please provide Microsoft Client ID and Client Secret.", "danger");
+      return;
+    }
+    setIsSavingMsConfig(true);
+    try {
+      await apiFetch("/auth/microsoft/config", {
+        method: "POST",
+        body: JSON.stringify({
+          client_id: msClientId,
+          client_secret: msClientSecret,
+          tenant_id: msTenantId,
+          redirect_uri: "http://localhost:8081/api/auth/microsoft/callback"
+        })
+      });
+      showToast("Microsoft App configurations saved. Initiating login...", "success");
+      // Redirect to authorization flow
+      setTimeout(() => {
+        window.location.href = "http://localhost:8081/api/auth/microsoft/login";
+      }, 800);
+    } catch (err: any) {
+      showToast(err.message, "danger");
+    } finally {
+      setIsSavingMsConfig(false);
     }
   };
 
@@ -1149,7 +1200,7 @@ export default function App() {
             <div className="table-container" style={{ padding: '1.5rem', marginBottom: '1.5rem' }}>
               <h3 className="table-title" style={{ marginBottom: '0.75rem' }}>Microsoft Account Connection (Auto-flow & Webhook Setup)</h3>
               <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '1.25rem' }}>
-                Optionally authenticate directly with your Microsoft Office 365 account to let the Ingestion Gateway automatically register webhook subscriptions, poll mail folders, and load Excel workbooks without manually configuring Power Automate flows.
+                Authenticate directly with your Microsoft Office 365 account to let the Ingestion Gateway automatically register webhook subscriptions, poll mail folders, and load Excel workbooks without manually configuring Power Automate flows.
               </p>
               
               {msStatus?.connected ? (
@@ -1168,13 +1219,76 @@ export default function App() {
                   </button>
                 </div>
               ) : (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '0.5rem' }}>
-                  <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                    No Microsoft Account currently connected. Click the button to authorize access.
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '0.5rem', marginBottom: '1rem' }}>
+                    <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                      No Microsoft Account connected. Uses mock credentials by default. To configure custom settings, expand manual configuration below.
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.75rem' }}>
+                      <button className="btn btn-secondary btn-sm" onClick={() => setShowMsManualConfig(!showMsManualConfig)}>
+                        {showMsManualConfig ? "Hide Manual Config" : "Manual Config"}
+                      </button>
+                      <button className="btn btn-primary btn-sm" onClick={() => { window.location.href = "http://localhost:8081/api/auth/microsoft/login"; }}>
+                        Connect Microsoft Account
+                      </button>
+                    </div>
                   </div>
-                  <button className="btn btn-primary" onClick={() => { window.location.href = "http://localhost:8081/api/auth/microsoft/login"; }}>
-                    Connect Microsoft Account
-                  </button>
+
+                  {showMsManualConfig && (
+                    <form onSubmit={handleSaveAndConnect} style={{ padding: '1rem', border: '1px dashed var(--border-color)', borderRadius: '0.5rem', backgroundColor: 'var(--bg-secondary)', marginTop: '1rem' }}>
+                      <h4 style={{ fontSize: '0.85rem', marginBottom: '1rem', color: 'var(--primary)' }}>Azure App Registration Settings (Custom)</h4>
+                      
+                      <div className="form-group">
+                        <label className="form-label">Microsoft Application (client) ID</label>
+                        <input 
+                          type="text" 
+                          className="form-input" 
+                          placeholder="e.g. 523bb800-4b5c-4543-98cc-312984abcdef" 
+                          value={msClientId} 
+                          onChange={e => setMsClientId(e.target.value)} 
+                          required 
+                        />
+                      </div>
+
+                      <div className="form-group">
+                        <label className="form-label">Microsoft Client Secret</label>
+                        <input 
+                          type="password" 
+                          className="form-input" 
+                          placeholder="Enter your Azure Client Secret" 
+                          value={msClientSecret} 
+                          onChange={e => setMsClientSecret(e.target.value)} 
+                          required 
+                        />
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                        <div className="form-group">
+                          <label className="form-label">Microsoft Directory (tenant) ID</label>
+                          <input 
+                            type="text" 
+                            className="form-input" 
+                            value={msTenantId} 
+                            onChange={e => setMsTenantId(e.target.value)} 
+                            required 
+                          />
+                        </div>
+                        <div className="form-group">
+                          <label className="form-label">Redirect URI (Read-only)</label>
+                          <input 
+                            type="text" 
+                            className="form-input" 
+                            value="http://localhost:8081/api/auth/microsoft/callback" 
+                            disabled 
+                          />
+                        </div>
+                      </div>
+
+                      <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '0.5rem' }} disabled={isSavingMsConfig}>
+                        {isSavingMsConfig ? "Saving credentials..." : "Save Config & Authenticate Microsoft Account"}
+                      </button>
+                    </form>
+                  )}
                 </div>
               )}
             </div>

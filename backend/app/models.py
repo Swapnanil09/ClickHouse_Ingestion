@@ -143,3 +143,13 @@ class MicrosoftCredential(Base):
     refresh_token = Column(Text, nullable=False)
     expires_at = Column(DateTime, nullable=False)
     is_active = Column(Boolean, default=True)
+
+class MicrosoftAppConfig(Base):
+    __tablename__ = "microsoft_app_configs"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    client_id = Column(String, nullable=False)
+    client_secret = Column(String, nullable=False)
+    tenant_id = Column(String, default="common")
+    redirect_uri = Column(String, default="http://localhost:8081/api/auth/microsoft/callback")
+    is_active = Column(Boolean, default=True)

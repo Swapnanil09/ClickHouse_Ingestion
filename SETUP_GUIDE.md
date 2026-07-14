@@ -324,13 +324,15 @@ To avoid manually building Microsoft Power Automate flows, the Ingestion Gateway
 *   **Configuration**: Register an Application in the **Azure Active Directory Portal (App Registrations)**:
     1.  Add Redirect URI: `http://localhost:8081/api/auth/microsoft/callback`.
     2.  Grant API Permissions: `Mail.ReadWrite`, `offline_access`, `User.Read`.
-    3.  Set the following environment variables in `.env`:
-        ```ini
-        MICROSOFT_CLIENT_ID=your-azure-app-client-id
-        MICROSOFT_CLIENT_SECRET=your-azure-app-client-secret
-        MICROSOFT_TENANT_ID=common
-        MICROSOFT_REDIRECT_URI=http://localhost:8081/api/auth/microsoft/callback
-        ```
-*   **Operation**: Click **Connect Microsoft Account** on the dashboard. Once authorized, the background Graph Poller automatically scans for unread emails, parses headers, downloads matching attachments, and starts the pipeline.
+    3.  Choose one of the connection methods:
+        *   **Method A: Web UI Configuration (Recommended)**: Expand **Manual Config** directly under the *Connect Microsoft Account* card on the dashboard, input your Azure Client ID, Client Secret, and Tenant ID, and click *Save Config & Authenticate*. The backend writes these parameters securely to the local SQLite database.
+        *   **Method B: Environment Configuration**: Configure `.env` variables directly:
+            ```ini
+            MICROSOFT_CLIENT_ID=your-azure-app-client-id
+            MICROSOFT_CLIENT_SECRET=your-azure-app-client-secret
+            MICROSOFT_TENANT_ID=common
+            MICROSOFT_REDIRECT_URI=http://localhost:8081/api/auth/microsoft/callback
+            ```
+*   **Operation**: Click **Connect Microsoft Account** on the dashboard. This exchanges authorization codes for long-lived OAuth refresh tokens, and activates the automatic background listener process.
 
 

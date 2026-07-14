@@ -98,29 +98,84 @@ def get_me(current_user: User = Depends(get_current_user)):
 
 import urllib.parse
 from fastapi.responses import RedirectResponse
-from backend.app.models import MicrosoftCredential
+from backend.app.models import MicrosoftCredential, MicrosoftAppConfig
+from pydantic import BaseModel
+
+class MicrosoftAppConfigSchema(BaseModel):
+    client_id: str
+    client_secret: str
+    tenant_id: str = "common"
+    redirect_uri: str = "http://localhost:8081/api/auth/microsoft/callback"
+
+@router.get("/microsoft/config", response_model=Optional[MicrosoftAppConfigSchema])
+def get_microsoft_config(db: Session = Depends(get_db)):
+    config = db.query(MicrosoftAppConfig).filter(MicrosoftAppConfig.is_active == True).first()
+    if config:
+        return {
+            "client_id": config.client_id,
+            "client_secret": "********",  # Mask secret in read calls
+            "tenant_id": config.tenant_id,
+            "redirect_uri": config.redirect_uri
+        }
+    return {
+        "client_id": settings.MICROSOFT_CLIENT_ID,
+        "client_secret": "********",
+        "tenant_id": settings.MICROSOFT_TENANT_ID,
+        "redirect_uri": settings.MICROSOFT_REDIRECT_URI
+    }
+
+@router.post("/microsoft/config")
+def save_microsoft_config(config_in: MicrosoftAppConfigSchema, db: Session = Depends(get_db)):
+    # Deactivate existing
+    db.query(MicrosoftAppConfig).update({MicrosoftAppConfig.is_active: False})
+    
+    # Create new
+    config = MicrosoftAppConfig(
+        client_id=config_in.client_id,
+        client_secret=config_in.client_secret,
+        tenant_id=config_in.tenant_id,
+        redirect_uri=config_in.redirect_uri,
+        is_active=True
+    )
+    db.add(config)
+    db.commit()
+    return {"status": "saved"}
 
 @router.get("/microsoft/login")
-def microsoft_login():
-    if settings.MICROSOFT_CLIENT_ID == "mock-client-id-12345":
+def microsoft_login(db: Session = Depends(get_db)):
+    config = db.query(MicrosoftAppConfig).filter(MicrosoftAppConfig.is_active == True).first()
+    
+    client_id = config.client_id if config else settings.MICROSOFT_CLIENT_ID
+    tenant_id = config.tenant_id if config else settings.MICROSOFT_TENANT_ID
+    redirect_uri = config.redirect_uri if config else settings.MICROSOFT_REDIRECT_URI
+    
+    if client_id == "mock-client-id-12345":
         # Mock mode redirect directly to callback
         return RedirectResponse(url=f"/api/auth/microsoft/callback?code=mock-auth-code-2026")
     
     # Real Microsoft OAuth redirect URL
     params = {
-        "client_id": settings.MICROSOFT_CLIENT_ID,
+        "client_id": client_id,
         "response_type": "code",
-        "redirect_uri": settings.MICROSOFT_REDIRECT_URI,
+        "redirect_uri": redirect_uri,
         "response_mode": "query",
         "scope": "https://graph.microsoft.com/Mail.ReadWrite offline_access User.Read",
         "state": "random-state-string-2026"
     }
-    url = f"https://login.microsoftonline.com/{settings.MICROSOFT_TENANT_ID}/oauth2/v2.0/authorize?{urllib.parse.urlencode(params)}"
+    url = f"https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/authorize?{urllib.parse.urlencode(params)}"
     return RedirectResponse(url=url)
 
 @router.get("/microsoft/callback")
 def microsoft_callback(code: str, db: Session = Depends(get_db)):
-    # Exchange token (in mock mode, create fake token, in real mode call OAuth)
+    # Retrieve active configuration
+    config = db.query(MicrosoftAppConfig).filter(MicrosoftAppConfig.is_active == True).first()
+    
+    client_id = config.client_id if config else settings.MICROSOFT_CLIENT_ID
+    client_secret = config.client_secret if config else settings.MICROSOFT_CLIENT_SECRET
+    tenant_id = config.tenant_id if config else settings.MICROSOFT_TENANT_ID
+    redirect_uri = config.redirect_uri if config else settings.MICROSOFT_REDIRECT_URI
+    
+    # Exchange token
     if code == "mock-auth-code-2026":
         email = "mock-operator@swapnanil.onmicrosoft.com"
         access_token = "mock-access-token-12345"
@@ -129,13 +184,13 @@ def microsoft_callback(code: str, db: Session = Depends(get_db)):
     else:
         # Real OAuth token exchange
         import requests
-        token_url = f"https://login.microsoftonline.com/{settings.MICROSOFT_TENANT_ID}/oauth2/v2.0/token"
+        token_url = f"https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token"
         payload = {
-            "client_id": settings.MICROSOFT_CLIENT_ID,
+            "client_id": client_id,
             "grant_type": "authorization_code",
             "code": code,
-            "redirect_uri": settings.MICROSOFT_REDIRECT_URI,
-            "client_secret": settings.MICROSOFT_CLIENT_SECRET
+            "redirect_uri": redirect_uri,
+            "client_secret": client_secret
         }
         res = requests.post(token_url, data=payload)
         if res.status_code != 200:

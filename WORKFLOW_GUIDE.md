@@ -124,10 +124,10 @@ Because Microsoft Power Automate runs in the cloud, it cannot access your local 
 As a native alternative to Power Automate, you can connect your Microsoft Account directly to the gateway:
 1.  Navigate to the **Integration / PA Flow** tab on the Operator Dashboard.
 2.  Locate the **Microsoft Account Connection** card.
-3.  Click **Connect Microsoft Account**.
-    *   *Prototype Mode*: Automatically logs you in with a mock profile (`mock-operator@swapnanil.onmicrosoft.com`) and starts a simulated mailbox listener.
-    *   *Production Mode*: Directs you to the Microsoft Azure secure login page, prompts for your O365 credentials, and obtains an encrypted refresh token saved in the local database metadata store.
-4.  The gateway's background thread will now directly query the Microsoft Graph API, listen for Excel emails, extract attachments, run validation, and insert rows into ClickHouse automatically.
+3.  Choose your connection method:
+    *   **Default Mock Connection**: Click **Connect Microsoft Account** directly. It uses sandbox keys to connect you to a mock mailbox listener (`mock-operator@swapnanil.onmicrosoft.com`) immediately.
+    *   **Custom Azure App Connection**: Click **Manual Config** directly under the card. Enter your Microsoft Application (client) ID, Client Secret, and Tenant ID, then click **Save Config & Authenticate Microsoft Account**. This initiates a real OAuth 2.0 flow using your credentials.
+4.  Once successfully connected, the gateway's background thread will automatically query the Microsoft Graph API, listen for Excel emails, extract attachments, run validations, and insert rows into ClickHouse.
 
 ---
 
