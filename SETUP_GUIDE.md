@@ -111,13 +111,13 @@ To set up the ingestion automation flow in Microsoft Power Automate, create a **
 
 ```mermaid
 graph TD
-    Trigger[Outlook: When a new email arrives V3]
-    FilterSubject[Condition: Subject contains 'upload_request']
-    GetAttach[Outlook: Get Attachment V2]
-    ConvertB64[Compose: base64(Attachment ContentBytes)]
-    SendHTTP[HTTP Action: POST to backend/api/upload/webhook]
-    ReconHTTP[HTTP Action: POST to backend/api/reconciliation]
-    SendEmail[Outlook: Send email confirmation Success/Failure]
+    Trigger["Outlook: When a new email arrives V3"]
+    FilterSubject["Condition: Subject contains 'upload_request'"]
+    GetAttach["Outlook: Get Attachment V2"]
+    ConvertB64["Compose: base64(Attachment ContentBytes)"]
+    SendHTTP["HTTP Action: POST to backend/api/upload/webhook"]
+    ReconHTTP["HTTP Action: POST to backend/api/reconciliation"]
+    SendEmail["Outlook: Send email confirmation Success/Failure"]
     
     Trigger --> FilterSubject
     FilterSubject -->|Yes| GetAttach

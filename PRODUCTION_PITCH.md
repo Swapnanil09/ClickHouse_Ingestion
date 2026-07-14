@@ -37,21 +37,21 @@ We propose deploying a central, secure Ingestion Gateway between Microsoft Offic
 ```mermaid
 graph LR
     subgraph Email Sources
-        O365[Office 365 Outlook]
+        O365["Office 365 Outlook"]
     end
     
     subgraph Automation
-        PA[Power Automate Webhook Orchestrator]
+        PA["Power Automate Webhook Orchestrator"]
     end
     
     subgraph Security Gateway
-        FE[Operator React Dashboard]
-        BE[FastAPI Validation Service]
-        DB[(Metadata & Audit SQLite/PostgreSQL)]
+        FE["Operator React Dashboard"]
+        BE["FastAPI Validation Service"]
+        DB[("Metadata & Audit SQLite/PostgreSQL")]
     end
     
     subgraph Storage
-        CH[(ClickHouse Analytical DB)]
+        CH[("ClickHouse Analytical DB")]
     end
     
     O365 -->|Detect attachment| PA
