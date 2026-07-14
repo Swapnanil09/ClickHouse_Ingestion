@@ -71,6 +71,8 @@ export default function App() {
 
   // Error notifications toast list
   const [toasts, setToasts] = useState<any[]>([]);
+  const [logStartDate, setLogStartDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [logEndDate, setLogEndDate] = useState(() => new Date().toISOString().split('T')[0]);
   
   const showToast = (message: string, type: 'success' | 'danger' = 'success') => {
     const id = Date.now();
@@ -864,7 +866,7 @@ export default function App() {
               </div>
             </div>
 
-            <div className="table-container">
+            <div className="table-container" style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', maxWidth: '100%' }}>
               <table className="data-table">
                 <thead>
                   <tr>
@@ -955,6 +957,23 @@ export default function App() {
                 )}
               </div>
             </div>
+
+            {jobDetail.error_summary && (
+              <div className="table-container" style={{ 
+                padding: '1.25rem', 
+                backgroundColor: 'rgba(239, 68, 68, 0.08)', 
+                borderLeft: '4px solid var(--danger)',
+                borderColor: 'var(--danger-border)',
+                marginBottom: '1.5rem'
+              }}>
+                <h4 style={{ color: 'var(--danger)', fontSize: '0.95rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                  ❌ Ingestion Failure Details
+                </h4>
+                <div style={{ fontSize: '0.875rem', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', lineHeight: '1.4' }}>
+                  {jobDetail.error_summary}
+                </div>
+              </div>
+            )}
 
             <div className="job-details-grid">
               
@@ -1090,34 +1109,104 @@ export default function App() {
                 <div className="table-container" style={{ padding: '1.5rem' }}>
                   <h3 className="table-title" style={{ marginBottom: '1.25rem' }}>Ingestion Pipeline Timeline</h3>
                   
+                  {/* Date Range Log Filter */}
+                  <div style={{ 
+                    display: 'flex', 
+                    flexWrap: 'wrap', 
+                    gap: '0.5rem', 
+                    alignItems: 'center', 
+                    marginBottom: '1.25rem', 
+                    paddingBottom: '1rem', 
+                    borderBottom: '1px solid var(--border-color)' 
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                      <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>From:</label>
+                      <input 
+                        type="date" 
+                        className="form-input" 
+                        style={{ padding: '0.25rem 0.5rem', fontSize: '0.8rem', width: '125px', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', borderRadius: '0.25rem' }} 
+                        value={logStartDate} 
+                        onChange={e => setLogStartDate(e.target.value)} 
+                      />
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                      <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>To:</label>
+                      <input 
+                        type="date" 
+                        className="form-input" 
+                        style={{ padding: '0.25rem 0.5rem', fontSize: '0.8rem', width: '125px', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', borderRadius: '0.25rem' }} 
+                        value={logEndDate} 
+                        onChange={e => setLogEndDate(e.target.value)} 
+                      />
+                    </div>
+                    <button 
+                      className="btn btn-secondary btn-sm" 
+                      style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }} 
+                      onClick={() => { setLogStartDate(""); setLogEndDate(""); }}
+                      title="Show all history logs"
+                    >
+                      All
+                    </button>
+                    <button 
+                      className="btn btn-secondary btn-sm" 
+                      style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }} 
+                      onClick={() => {
+                        const todayStr = new Date().toISOString().split('T')[0];
+                        setLogStartDate(todayStr);
+                        setLogEndDate(todayStr);
+                      }}
+                      title="Show today's logs"
+                    >
+                      Today
+                    </button>
+                  </div>
+
                   <div className="timeline-container">
-                    {jobDetail.state_history && jobDetail.state_history.map((hist: any, index: number) => {
-                      const isActive = index === jobDetail.state_history.length - 1;
-                      const isErr = hist.new_state === 'FAILED' || hist.new_state === 'QUARANTINED';
-                      const isSuccess = hist.new_state === 'COMPLETED';
+                    {(() => {
+                      const filteredHistory = (jobDetail.state_history || []).filter((hist: any) => {
+                        if (!hist.timestamp) return true;
+                        const logDate = hist.timestamp.split('T')[0];
+                        if (logStartDate && logDate < logStartDate) return false;
+                        if (logEndDate && logDate > logEndDate) return false;
+                        return true;
+                      });
                       
-                      let dotClass = "timeline-dot";
-                      if (isErr) dotClass += " danger";
-                      else if (isSuccess) dotClass += " success";
-                      else if (isActive) dotClass += " active";
+                      if (filteredHistory.length === 0) {
+                        return (
+                          <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', textAlign: 'center', padding: '2rem 0' }}>
+                            No log events recorded in this date range.
+                          </div>
+                        );
+                      }
                       
-                      return (
-                        <div key={hist.id} className="timeline-item">
-                          <div className={dotClass}></div>
-                          <div className="timeline-time">
-                            {new Date(hist.timestamp).toLocaleTimeString()} ({hist.actor})
-                          </div>
-                          <div className="timeline-content" style={{ fontWeight: isActive ? 600 : 400 }}>
-                            {hist.new_state}
-                          </div>
-                          {hist.reason && (
-                            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.15rem' }}>
-                              {hist.reason}
+                      return filteredHistory.map((hist: any, index: number) => {
+                        const isActive = index === filteredHistory.length - 1;
+                        const isErr = hist.new_state === 'FAILED' || hist.new_state === 'QUARANTINED';
+                        const isSuccess = hist.new_state === 'COMPLETED';
+                        
+                        let dotClass = "timeline-dot";
+                        if (isErr) dotClass += " danger";
+                        else if (isSuccess) dotClass += " success";
+                        else if (isActive) dotClass += " active";
+                        
+                        return (
+                          <div key={hist.id} className="timeline-item">
+                            <div className={dotClass}></div>
+                            <div className="timeline-time">
+                              {new Date(hist.timestamp).toLocaleTimeString()} ({hist.actor})
                             </div>
-                          )}
-                        </div>
-                      );
-                    })}
+                            <div className="timeline-content" style={{ fontWeight: isActive ? 600 : 400 }}>
+                              {hist.new_state}
+                            </div>
+                            {hist.reason && (
+                              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.15rem' }}>
+                                {hist.reason}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      });
+                    })()}
                   </div>
                 </div>
               </div>
