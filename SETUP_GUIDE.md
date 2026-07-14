@@ -335,4 +335,29 @@ To avoid manually building Microsoft Power Automate flows, the Ingestion Gateway
             ```
 *   **Operation**: Click **Connect Microsoft Account** on the dashboard. This exchanges authorization codes for long-lived OAuth refresh tokens, and activates the automatic background listener process.
 
+---
+
+## 10. Production Hardening & Operational Safety
+
+The platform incorporates several industry-grade engineering practices designed to move beyond prototype stages and ensure secure, reliable production operations:
+
+### 10.1 ClickHouse Connection Password Encryption
+*   **Implementation**: All password properties submitted when creating or updating ClickHouse connections are automatically encrypted symmetrically before writing to the database metadata store.
+*   **Security standard**: Uses AES encryption via the Python `cryptography.fernet` library.
+*   **Key derivation**: The encryption key is derived deterministically from the server's `JWT_SECRET` (configured via `.env`). If the database credentials are leaked or exposed, the connection passwords remain fully secure. Decryption happens purely in memory during ingestion runs.
+
+### 10.2 API Rate Limiting Middleware
+*   **Implementation**: An ASGI HTTP rate limiting middleware operates on all incoming API requests (e.g. webhook triggers, auth logins).
+*   **Limitation**: Restricts requests to `100 requests per minute` per unique client IP address. 
+*   **Response**: Exceeding this limit yields a standard HTTP `429 Too Many Requests` status code, defending the validation pipeline and database against brute-force logins or DDOS attempts.
+
+### 10.3 Rotating Rotational Logging System
+*   **Implementation**: Utilizes `RotatingFileHandler` to record server logs.
+*   **Storage**: Logs are automatically written to `logs/app_server.log`.
+*   **Rotation policies**: Prevents infinite log expansion. Files are split at `5MB` limits, retaining up to `5` historical backup files (`app_server.log.1`, `app_server.log.2`, etc.) before recycling, preventing server disk crashes.
+
+### 10.4 Startup Key Safety Validator
+*   **Implementation**: When setting `APP_ENV=production` inside `.env`, the FastAPI application runs a series of strict security checks at start-up.
+*   **Rules**: If the default prototype secret keys are detected (such as `supersecretjwtkey...` or `PA-Secure-Token-12345`), the server immediately outputs a `CRITICAL` log and raises a start-up validation error, shutting down the process. This ensures weak default keys are never accidentally deployed in staging or production.
+
 

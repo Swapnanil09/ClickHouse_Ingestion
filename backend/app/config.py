@@ -3,6 +3,10 @@ from pydantic_settings import BaseSettings
 from typing import List
 
 class Settings(BaseSettings):
+    # Environment Control
+    APP_ENV: str = "development"  # "development" or "production"
+    SANDBOX_MODE: bool = True     # If True, fallbacks to mock APIs when keys are missing/invalid
+    
     # Security
     JWT_SECRET: str = "supersecretjwtkeyforoutlooktochplatform2026!!!"
     JWT_ALGORITHM: str = "HS256"

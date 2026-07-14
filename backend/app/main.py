@@ -10,13 +10,25 @@ from backend.app.api.auth import get_password_hash
 from backend.app.services.outlook_poller_service import OutlookPollerService
 from backend.app.services.ms_graph_service import MSGraphService
 
-# Setup logging
+from logging.handlers import RotatingFileHandler
+import os
+
+# Ensure logs directory exists
+os.makedirs("logs", exist_ok=True)
+
+# Setup logging with rotation handler
+rotating_handler = RotatingFileHandler(
+    "logs/app_server.log",
+    maxBytes=5 * 1024 * 1024,  # 5MB
+    backupCount=5
+)
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     handlers=[
         logging.StreamHandler(),
-        logging.FileHandler("app_server.log")
+        rotating_handler
     ]
 )
 logger = logging.getLogger("app.main")
@@ -26,6 +38,39 @@ app = FastAPI(
     description="Backend processing engine, schema validator, and Power Automate integration gateway.",
     version="1.0.0"
 )
+
+from fastapi import Request
+from fastapi.responses import JSONResponse
+import time
+
+# InMemory Rate Limiter
+RATE_LIMIT_WINDOWS = {}  # ip -> list of timestamps
+RATE_LIMIT_MAX_REQUESTS = 100  # max requests
+RATE_LIMIT_WINDOW_SECS = 60  # per 60 seconds
+
+@app.middleware("http")
+async def rate_limiting_middleware(request: Request, call_next):
+    # Only rate-limit API endpoints
+    if request.url.path.startswith("/api"):
+        client_ip = request.client.host if request.client else "unknown"
+        now = time.time()
+        
+        # Get requests for this IP in the last window
+        timestamps = RATE_LIMIT_WINDOWS.get(client_ip, [])
+        timestamps = [t for t in timestamps if now - t < RATE_LIMIT_WINDOW_SECS]
+        
+        if len(timestamps) >= RATE_LIMIT_MAX_REQUESTS:
+            logger.warning(f"Rate limit exceeded for IP: {client_ip}")
+            return JSONResponse(
+                status_code=429,
+                content={"detail": "Too many requests. Please try again later."}
+            )
+        
+        timestamps.append(now)
+        RATE_LIMIT_WINDOWS[client_ip] = timestamps
+        
+    response = await call_next(request)
+    return response
 
 # CORS middleware config
 app.add_middleware(
@@ -46,6 +91,16 @@ app.include_router(reconciliation.router, prefix="/api")
 
 @app.on_event("startup")
 def startup_event():
+    # Production security validation
+    if settings.APP_ENV == "production":
+        if settings.JWT_SECRET == "supersecretjwtkeyforoutlooktochplatform2026!!!":
+            logger.critical("SECURITY VIOLATION: Default JWT secret key detected in production environment!")
+            raise ValueError("JWT_SECRET must be customized in production environment")
+        if settings.POWER_AUTOMATE_API_KEY == "PA-Secure-Token-12345":
+            logger.critical("SECURITY VIOLATION: Default Power Automate API key detected in production environment!")
+            raise ValueError("POWER_AUTOMATE_API_KEY must be customized in production environment")
+        logger.info("Production Security settings verified. Custom secrets active.")
+
     logger.info("Initializing metadata database tables...")
     Base.metadata.create_all(bind=engine)
     

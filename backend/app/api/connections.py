@@ -10,6 +10,30 @@ from backend.app.schemas import (
 from backend.app.services.clickhouse_service import ClickHouseService
 from backend.app.api.auth import get_current_user
 import datetime
+import base64
+import hashlib
+from cryptography.fernet import Fernet
+from backend.app.config import settings
+
+def get_encryption_cipher() -> Fernet:
+    derived_key = hashlib.sha256(settings.JWT_SECRET.encode()).digest()
+    base64_key = base64.urlsafe_b64encode(derived_key)
+    return Fernet(base64_key)
+
+def encrypt_password(plain_text: str) -> str:
+    if not plain_text:
+        return ""
+    cipher = get_encryption_cipher()
+    return cipher.encrypt(plain_text.encode()).decode()
+
+def decrypt_password(cipher_text: str) -> str:
+    if not cipher_text:
+        return ""
+    try:
+        cipher = get_encryption_cipher()
+        return cipher.decrypt(cipher_text.encode()).decode()
+    except Exception:
+        return cipher_text
 
 router = APIRouter(prefix="/connections", tags=["clickhouse-connections"])
 
@@ -34,7 +58,7 @@ def create_connection(
         host=conn_in.host,
         port=conn_in.port,
         username=conn_in.username,
-        password_encrypted=conn_in.password,
+        password_encrypted=encrypt_password(conn_in.password),
         secure=conn_in.secure,
         databases_restricted=conn_in.databases_restricted,
         is_active=True
@@ -71,7 +95,7 @@ def test_connection_by_id(
         host=conn.host,
         port=conn.port,
         username=conn.username,
-        password=conn.password_encrypted,
+        password=decrypt_password(conn.password_encrypted),
         secure=conn.secure,
         db_session=db
     )
@@ -108,7 +132,7 @@ def get_active_databases(db: Session = Depends(get_db), current_user: Any = Depe
         raise HTTPException(status_code=400, detail="No active ClickHouse connection is configured")
         
     return ClickHouseService.discover_databases(
-        conn.host, conn.port, conn.username, conn.password_encrypted, conn.secure, db
+        conn.host, conn.port, conn.username, decrypt_password(conn.password_encrypted), conn.secure, db
     )
 
 @router.get("/active/databases/{database}/tables", response_model=List[str])
@@ -122,7 +146,7 @@ def get_active_tables(
         raise HTTPException(status_code=400, detail="No active ClickHouse connection is configured")
         
     return ClickHouseService.discover_tables(
-        conn.host, conn.port, conn.username, conn.password_encrypted, conn.secure, database, db
+        conn.host, conn.port, conn.username, decrypt_password(conn.password_encrypted), conn.secure, database, db
     )
 
 @router.get("/active/databases/{database}/tables/{table_name}/schema")
@@ -137,7 +161,7 @@ def get_table_schema(
         raise HTTPException(status_code=400, detail="No active ClickHouse connection is configured")
         
     schema = ClickHouseService.get_table_schema(
-        conn.host, conn.port, conn.username, conn.password_encrypted, conn.secure, database, table_name, db
+        conn.host, conn.port, conn.username, decrypt_password(conn.password_encrypted), conn.secure, database, table_name, db
     )
     if not schema:
         raise HTTPException(status_code=404, detail=f"Table {database}.{table_name} not found")

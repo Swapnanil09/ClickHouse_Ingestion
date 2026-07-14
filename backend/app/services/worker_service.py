@@ -15,6 +15,7 @@ from backend.app.services.validation_service import ValidationService
 from backend.app.services.reconciliation_service import ReconciliationService
 from backend.app.services.notification_service import NotificationService
 from backend.app.config import settings
+from backend.app.api.connections import decrypt_password
 
 logger = logging.getLogger("app.services.worker")
 
@@ -164,7 +165,7 @@ class WorkerService:
                 connection_host=ch_conn.host,
                 connection_port=ch_conn.port,
                 connection_user=ch_conn.username,
-                connection_pass=ch_conn.password_encrypted, # In production we would decrypt this
+                connection_pass=decrypt_password(ch_conn.password_encrypted), # Encypted password decrypted for real ClickHouse connection
                 connection_secure=ch_conn.secure,
                 db_session=db
             )
@@ -185,7 +186,7 @@ class WorkerService:
                 host=ch_conn.host,
                 port=ch_conn.port,
                 username=ch_conn.username,
-                password=ch_conn.password_encrypted,
+                password=decrypt_password(ch_conn.password_encrypted),
                 secure=ch_conn.secure,
                 database=discovered_db,
                 table_name=job.target_table,
@@ -319,7 +320,7 @@ class WorkerService:
                     host=ch_conn.host,
                     port=ch_conn.port,
                     username=ch_conn.username,
-                    password=ch_conn.password_encrypted,
+                    password=decrypt_password(ch_conn.password_encrypted),
                     secure=ch_conn.secure,
                     database=discovered_db,
                     table_name=job.target_table,
