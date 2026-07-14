@@ -1229,7 +1229,12 @@ export default function App() {
               
               {/* Connection configuration form */}
               <div className="table-container" style={{ padding: '1.5rem' }}>
-                <h3 className="table-title" style={{ marginBottom: '1.25rem' }}>Connection Parameters</h3>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+                  <h3 className="table-title" style={{ margin: 0 }}>Connection Parameters</h3>
+                  <span className={`badge ${chHost.toLowerCase() === 'emulated' ? 'badge-warning' : 'badge-success'}`}>
+                    {chHost.toLowerCase() === 'emulated' ? 'EMULATOR ACTIVE' : 'REAL INSTANCE'}
+                  </span>
+                </div>
                 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                   <div className="form-group">
