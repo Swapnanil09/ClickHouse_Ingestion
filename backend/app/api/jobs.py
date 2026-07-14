@@ -23,7 +23,10 @@ def get_jobs(
 ):
     query = db.query(IngestionJob)
     if status:
-        query = query.filter(IngestionJob.status == status)
+        if status == "FAILED":
+            query = query.filter(IngestionJob.status.in_(["FAILED", "CANCELLED"]))
+        else:
+            query = query.filter(IngestionJob.status == status)
     if reconciliation_status:
         query = query.filter(IngestionJob.reconciliation_status == reconciliation_status)
     if target_table:
@@ -38,7 +41,7 @@ def get_overview_stats(db: Session = Depends(get_db), current_user: Any = Depend
     """
     total_jobs = db.query(IngestionJob).count()
     success_jobs = db.query(IngestionJob).filter(IngestionJob.status == "COMPLETED").count()
-    failed_jobs = db.query(IngestionJob).filter(IngestionJob.status == "FAILED").count()
+    failed_jobs = db.query(IngestionJob).filter(IngestionJob.status.in_(["FAILED", "CANCELLED"])).count()
     processing_jobs = db.query(IngestionJob).filter(
         IngestionJob.status.notin_(["COMPLETED", "FAILED", "QUARANTINED", "CANCELLED"])
     ).count()
