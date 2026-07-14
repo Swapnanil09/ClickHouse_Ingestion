@@ -45,7 +45,7 @@ import time
 
 # InMemory Rate Limiter
 RATE_LIMIT_WINDOWS = {}  # ip -> list of timestamps
-RATE_LIMIT_MAX_REQUESTS = 100  # max requests
+RATE_LIMIT_MAX_REQUESTS = 1000  # max requests (adjusted to accommodate active dashboard polling)
 RATE_LIMIT_WINDOW_SECS = 60  # per 60 seconds
 
 @app.middleware("http")
