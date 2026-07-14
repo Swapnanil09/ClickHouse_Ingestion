@@ -999,7 +999,7 @@ export default function App() {
 
                 {/* Validation Errors report */}
                 {jobDetail.validation_errors && jobDetail.validation_errors.length > 0 && (
-                  <div className="table-container" style={{ borderColor: 'var(--danger-border)', borderLeft: '4px solid var(--danger)' }}>
+                  <div className="table-container" style={{ borderColor: 'var(--danger-border)', borderLeft: '4px solid var(--danger)', overflowX: 'auto', WebkitOverflowScrolling: 'touch', maxWidth: '100%' }}>
                     <div className="table-header-row" style={{ backgroundColor: 'var(--danger-bg)' }}>
                       <h3 className="table-title" style={{ color: 'var(--danger)' }}>Validation Failures & Schema Mismatches</h3>
                       <span className="badge badge-danger">{jobDetail.validation_errors.length} Errors Found</span>
@@ -1482,7 +1482,7 @@ export default function App() {
               </div>
             </div>
 
-            <div className="table-container">
+            <div className="table-container" style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', maxWidth: '100%' }}>
               <table className="data-table">
                 <thead>
                   <tr>
