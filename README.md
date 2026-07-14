@@ -26,7 +26,7 @@ This platform bridges **Microsoft Outlook (via Power Automate)** and **ClickHous
 *   **Power Automate Webhook Reconciliation**: Cross-references Power Automate's processed metadata against backend insertion counts to immediately flag discrepancies.
 *   **Modern SaaS Dashboard**: High-fidelity dark mode containing active logs, side-by-side schema mapping, audit timelines, quarantine tools, and real-time polling updates.
 *   **Zero-Dependency Local Simulator**: Built-in SQLite-based ClickHouse Connection Emulator and Power Automate Webhook simulator to test all pipelines immediately out of the box.
-*   **Optional Direct Outlook Polling**: Support for connecting directly to Outlook mailboxes via secure IMAP as a native alternative to Power Automate flow webhooks.
+*   **Optional Direct Outlook Polling & OAuth**: Support for connecting directly to Outlook mailboxes via secure IMAP or via direct Microsoft Account authentication (OAuth 2.0 + MS Graph API) as a native alternative to manual Power Automate flows.
 
 ---
 

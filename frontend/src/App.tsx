@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   BarChart, Activity, Database, ShieldAlert, Settings, Send, 
-  RefreshCw, LogOut, CheckCircle, XCircle, AlertTriangle, Key, ChevronRight, X
+  RefreshCw, LogOut, CheckCircle, XCircle, AlertTriangle, Key, ChevronRight, X, Sun, Moon
 } from 'lucide-react';
 
 const API_BASE = "http://127.0.0.1:8000/api";
@@ -15,6 +15,10 @@ export default function App() {
   
   const [currentPage, setCurrentPage] = useState("overview");
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
+  
+  // Theme and Microsoft Connection status
+  const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "dark");
+  const [msStatus, setMsStatus] = useState<{ connected: boolean, email: string | null, expires_at?: string } | null>(null);
   
   // Stats & Lists
   const [stats, setStats] = useState<any>(null);
@@ -154,6 +158,11 @@ export default function App() {
     apiFetch("/upload/notifications")
       .then(data => { if (data) setNotifications(data); })
       .catch(() => {});
+      
+    // MS Graph Status
+    apiFetch("/auth/microsoft/status")
+      .then(data => { if (data) setMsStatus(data); })
+      .catch(() => {});
   };
 
   // Fetch Job details when job selected
@@ -181,6 +190,33 @@ export default function App() {
       return () => clearInterval(poll);
     }
   }, [selectedJobId, token]);
+
+  // Theme Sync
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem("theme", theme);
+  }, [theme]);
+
+  // Check URL query parameters for MS oauth callback success
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("ms_connected") === "true") {
+      showToast("Microsoft account connected successfully!", "success");
+      // Clean query parameter from URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
+
+  // MS Account disconnect
+  const handleMsDisconnect = async () => {
+    try {
+      await apiFetch("/auth/microsoft/disconnect", { method: "POST" });
+      showToast("Microsoft account disconnected.", "success");
+      setMsStatus({ connected: false, email: null });
+    } catch (err: any) {
+      showToast(err.message, "danger");
+    }
+  };
 
   // Polling loop for active dashboard metrics (near real-time)
   useEffect(() => {
@@ -408,11 +444,16 @@ export default function App() {
         </nav>
         
         <div className="sidebar-footer">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
             <span>User: {user?.username} ({user?.role})</span>
-            <span title="Sign Out" style={{ display: 'inline-flex' }}>
-              <LogOut size={16} style={{ cursor: 'pointer' }} onClick={handleLogout} />
-            </span>
+            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+              <span title="Toggle Theme" style={{ display: 'inline-flex', cursor: 'pointer' }} onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
+                {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+              </span>
+              <span title="Sign Out" style={{ display: 'inline-flex', cursor: 'pointer' }}>
+                <LogOut size={16} onClick={handleLogout} />
+              </span>
+            </div>
           </div>
           <div>v1.0.0 (Prototype)</div>
         </div>
@@ -436,7 +477,7 @@ export default function App() {
             
             {/* Stats grid */}
             <div className="grid-stats">
-              <div className="stat-card">
+              <div className="stat-card" onClick={() => { setCurrentPage("jobs"); setFilteredStatus(""); }}>
                 <div className="stat-header">
                   <span className="stat-label">Total Pipeline runs</span>
                   <Activity size={18} style={{ color: 'var(--primary)' }} />
@@ -445,7 +486,7 @@ export default function App() {
                 <div className="stat-desc">Success rate: {stats?.success_rate || 0}%</div>
               </div>
               
-              <div className="stat-card">
+              <div className="stat-card" onClick={() => { setCurrentPage("jobs"); setFilteredStatus("COMPLETED"); }}>
                 <div className="stat-header">
                   <span className="stat-label">Ingested Success</span>
                   <CheckCircle size={18} style={{ color: 'var(--success)' }} />
@@ -454,7 +495,7 @@ export default function App() {
                 <div className="stat-desc">Loaded safely into ClickHouse</div>
               </div>
               
-              <div className="stat-card">
+              <div className="stat-card" onClick={() => { setCurrentPage("jobs"); setFilteredStatus("FAILED"); }}>
                 <div className="stat-header">
                   <span className="stat-label">Validation Failures</span>
                   <XCircle size={18} style={{ color: 'var(--danger)' }} />
@@ -463,7 +504,7 @@ export default function App() {
                 <div className="stat-desc">Zero rows loaded (All-or-Nothing)</div>
               </div>
 
-              <div className="stat-card">
+              <div className="stat-card" onClick={() => { setCurrentPage("quarantine"); }}>
                 <div className="stat-header">
                   <span className="stat-label">Quarantined Files</span>
                   <ShieldAlert size={18} style={{ color: 'var(--warning)' }} />
@@ -472,7 +513,7 @@ export default function App() {
                 <div className="stat-desc">Awaiting operator template fix</div>
               </div>
 
-              <div className="stat-card">
+              <div className="stat-card" onClick={() => { setCurrentPage("integration"); }}>
                 <div className="stat-header">
                   <span className="stat-label">Reconcile Alerts</span>
                   <AlertTriangle size={18} style={{ color: stats?.discrepancy_count > 0 ? 'var(--danger)' : 'var(--text-muted)' }} />
@@ -1102,6 +1143,40 @@ export default function App() {
                 <h1 className="page-title">Outlook / Power Automate Integration</h1>
                 <p className="page-subtitle">Configure webhook endpoints, audit reconciliation checks, and trigger simulations</p>
               </div>
+            </div>
+
+            {/* Direct Microsoft 365 Integration Dashboard card */}
+            <div className="table-container" style={{ padding: '1.5rem', marginBottom: '1.5rem' }}>
+              <h3 className="table-title" style={{ marginBottom: '0.75rem' }}>Microsoft Account Connection (Auto-flow & Webhook Setup)</h3>
+              <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '1.25rem' }}>
+                Optionally authenticate directly with your Microsoft Office 365 account to let the Ingestion Gateway automatically register webhook subscriptions, poll mail folders, and load Excel workbooks without manually configuring Power Automate flows.
+              </p>
+              
+              {msStatus?.connected ? (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem', backgroundColor: 'var(--success-bg)', border: '1px solid var(--success-border)', borderRadius: '0.5rem' }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span className="badge badge-success">CONNECTED</span>
+                      <strong style={{ fontSize: '0.9rem' }}>{msStatus.email}</strong>
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+                      Auto-Polling active checking every 20 seconds. Token Expiry: {msStatus.expires_at ? new Date(msStatus.expires_at).toLocaleString() : "N/A"}
+                    </div>
+                  </div>
+                  <button className="btn btn-secondary btn-sm" onClick={handleMsDisconnect}>
+                    Disconnect Account
+                  </button>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '0.5rem' }}>
+                  <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                    No Microsoft Account currently connected. Click the button to authorize access.
+                  </div>
+                  <button className="btn btn-primary" onClick={() => { window.location.href = "http://localhost:8000/api/auth/microsoft/login"; }}>
+                    Connect Microsoft Account
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Integration Status & Stats Widgets */}

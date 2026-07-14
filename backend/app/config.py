@@ -36,6 +36,12 @@ class Settings(BaseSettings):
     OUTLOOK_PASSWORD: str = ""
     OUTLOOK_POLL_INTERVAL_SECS: int = 0  # 0 means disabled by default
     
+    # Microsoft Entra ID (Azure AD) OAuth / Graph settings (For Auto-connection)
+    MICROSOFT_CLIENT_ID: str = "mock-client-id-12345"
+    MICROSOFT_CLIENT_SECRET: str = "mock-client-secret-12345"
+    MICROSOFT_TENANT_ID: str = "common"
+    MICROSOFT_REDIRECT_URI: str = "http://localhost:8000/api/auth/microsoft/callback"
+    
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

@@ -8,6 +8,7 @@ from backend.app.api import auth, connections, jobs, workflow, upload, reconcili
 from backend.app.models import User, WorkflowConfig, MockClickHouseTable, ClickHouseConnection
 from backend.app.api.auth import get_password_hash
 from backend.app.services.outlook_poller_service import OutlookPollerService
+from backend.app.services.ms_graph_service import MSGraphService
 
 # Setup logging
 logging.basicConfig(
@@ -145,11 +146,14 @@ def startup_event():
         
     logger.info("FastAPI Application fully loaded.")
     OutlookPollerService.start_poller()
+    MSGraphService.start_service()
 
 @app.on_event("shutdown")
 def shutdown_event():
     logger.info("Stopping Outlook Direct Poller...")
     OutlookPollerService.stop_poller()
+    logger.info("Stopping MS Graph Mail Listener...")
+    MSGraphService.stop_service()
 
 @app.get("/health")
 def health_check():

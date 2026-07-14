@@ -133,3 +133,13 @@ class MockClickHouseTable(Base):
     
     # We will simulate writing data by saving rows in a json column for validation and querying
     data_json = Column(JSON, default=list)
+
+class MicrosoftCredential(Base):
+    __tablename__ = "microsoft_credentials"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_email = Column(String, unique=True, index=True, nullable=False)
+    access_token = Column(Text, nullable=False)
+    refresh_token = Column(Text, nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+    is_active = Column(Boolean, default=True)

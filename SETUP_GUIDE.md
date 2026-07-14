@@ -308,22 +308,29 @@ aws s3 sync /opt/ingestion/quarantine s3://company-quarantine-backups/files/
 
 ---
 
-## 9. Optional Direct Outlook Mailbox Polling
+## 9. Direct Outlook Mailbox Integration Channels
 
-As an alternative to utilizing Microsoft Power Automate, the backend includes a built-in background client to poll an Outlook mailbox directly via secure IMAP.
+To avoid manually building Microsoft Power Automate flows, the Ingestion Gateway supports two optional native polling methods:
 
-### Configuration
-Update the `.env` settings:
-1.  **`OUTLOOK_POLL_INTERVAL_SECS`**: Set this to a value greater than `0` (e.g., `30` to check for emails every 30 seconds).
-2.  **`OUTLOOK_EMAIL` & `OUTLOOK_PASSWORD`**: Provide your Office 365 Outlook email account and App Password (or client credentials).
-3.  **`OUTLOOK_IMAP_SERVER`**: Keep as `outlook.office365.com` (default) or set your custom IMAP proxy.
+### 9.1 Channel A: Direct IMAP Poller
+*   **Mechanism**: Connects directly to the Outlook IMAP server (`outlook.office365.com` on port 993) using an email and password/app-password.
+*   **Setup**: Configure `.env` parameters:
+    *   `OUTLOOK_POLL_INTERVAL_SECS`: Set > 0 (e.g. `30`).
+    *   `OUTLOOK_EMAIL`: Your Outlook email.
+    *   `OUTLOOK_PASSWORD`: Your Outlook password or App Password.
 
-### Operation
-*   The background worker connects via IMAP SSL and inspects the Inbox folder.
-*   It searches for unread (`UNSEEN`) emails.
-*   If an email subject contains `upload_request` (or matches an active routing rule) and has a `.xlsx` workbook attachment:
-    1.  It automatically downloads the attachment.
-    2.  It parses the email subject or body for the target ClickHouse table (matching `table: [table_name]`).
-    3.  It registers the ingestion job and schedules asynchronous processing.
-    4.  It marks the email as `Seen` (read) to prevent duplicate processing on subsequent runs.
+### 9.2 Channel B: Direct Microsoft Graph API Poller (Auto-Authentication)
+*   **Mechanism**: The operator signs in directly via their Microsoft Account on the dashboard. The backend obtains an OAuth 2.0 access/refresh token and automatically polls the user's Office 365 Inbox using official MS Graph API calls.
+*   **Configuration**: Register an Application in the **Azure Active Directory Portal (App Registrations)**:
+    1.  Add Redirect URI: `http://localhost:8000/api/auth/microsoft/callback`.
+    2.  Grant API Permissions: `Mail.ReadWrite`, `offline_access`, `User.Read`.
+    3.  Set the following environment variables in `.env`:
+        ```ini
+        MICROSOFT_CLIENT_ID=your-azure-app-client-id
+        MICROSOFT_CLIENT_SECRET=your-azure-app-client-secret
+        MICROSOFT_TENANT_ID=common
+        MICROSOFT_REDIRECT_URI=http://localhost:8000/api/auth/microsoft/callback
+        ```
+*   **Operation**: Click **Connect Microsoft Account** on the dashboard. Once authorized, the background Graph Poller automatically scans for unread emails, parses headers, downloads matching attachments, and starts the pipeline.
+
 

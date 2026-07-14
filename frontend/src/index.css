@@ -41,6 +41,40 @@
   --info-border: rgba(99, 102, 241, 0.2);
 }
 
+:root[data-theme="light"] {
+  --bg-primary: #f8fafc;
+  --bg-secondary: #ffffff;
+  --bg-card: #f1f5f9;
+  --bg-input: #e2e8f0;
+  
+  --border-color: #cbd5e1;
+  --border-hover: #94a3b8;
+
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --primary-glow: rgba(37, 99, 235, 0.1);
+
+  --success: #059669;
+  --success-bg: rgba(5, 150, 105, 0.1);
+  --success-border: rgba(5, 150, 105, 0.2);
+
+  --danger: #dc2626;
+  --danger-bg: rgba(220, 38, 38, 0.1);
+  --danger-border: rgba(220, 38, 38, 0.2);
+
+  --warning: #d97706;
+  --warning-bg: rgba(217, 119, 6, 0.1);
+  --warning-border: rgba(217, 119, 6, 0.2);
+
+  --info: #4f46e5;
+  --info-bg: rgba(79, 70, 229, 0.1);
+  --info-border: rgba(79, 70, 229, 0.2);
+}
+
 * {
   box-sizing: border-box;
   margin: 0;
@@ -198,6 +232,7 @@ body {
   position: relative;
   overflow: hidden;
   transition: transform 0.2s ease, border-color 0.2s ease;
+  cursor: pointer;
 }
 
 .stat-card:hover {
