@@ -95,12 +95,13 @@ After loading, the background worker cross-references the row count against the 
 Deploying this platform converts hours of engineering and debugging into seconds of automated, error-free execution:
 
 ### 5.1 Financial Savings Calculation
-$$\text{Annual Engineering Cost Savings} = N \times T \times C \times 250 \text{ days}$$
+**Annual Engineering Cost Savings = N × T × C × 250 days**
+
 Where:
-*   $N = 4$ (Average emails processed per day)
-*   $T = 0.75 \text{ hours}$ (Engineering effort to download, check, write script, insert, verify)
-*   $C = \$75/\text{hour}$ (Average engineering cost)
-*   **Total Savings**: $\$56,250 / \text{year}$ in saved labor, while reducing database debugging incidents to **zero**.
+*   **N** = 4 (Average emails processed per day)
+*   **T** = 0.75 hours (Engineering effort to manually download, check, write script, insert, and verify)
+*   **C** = $75 / hour (Average engineering cost)
+*   **Total Savings**: **$56,250 / year** in saved labor, while reducing database debugging incidents to **zero**.
 
 ### 5.2 Qualitative Benefits
 *   **Instant Visibility**: Dashboard displays file timelines, schema mappings, and error alerts in one unified panel.
