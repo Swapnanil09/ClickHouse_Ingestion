@@ -366,6 +366,61 @@ export default function App() {
     }
   };
 
+  // Get active stats aggregated for the last 7 days
+  const getWeeklyIngestionData = () => {
+    const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const counts: { [key: string]: number } = {};
+    
+    // Initialize last 7 days with 0
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      counts[days[d.getDay()]] = 0;
+    }
+    
+    // Aggregate jobs
+    jobs.forEach((job: any) => {
+      const date = new Date(job.created_at);
+      const dayName = days[date.getDay()];
+      if (counts[dayName] !== undefined) {
+        counts[dayName] += 1;
+      }
+    });
+    
+    // Convert to array of { label, value } in chronological order
+    const result = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const dayName = days[d.getDay()];
+      result.push({
+        label: i === 0 ? `${dayName} (Today)` : dayName,
+        value: counts[dayName]
+      });
+    }
+    return result;
+  };
+
+  // Calculate weekly ingestion coordinates dynamically for SVG chart
+  const getWfChartPath = () => {
+    const weeklyData = getWeeklyIngestionData();
+    const maxVal = Math.max(...weeklyData.map(d => d.value), 5);
+    
+    // Construct line path points
+    const points = weeklyData.map((d, index) => {
+      const x = 50 + index * (380 / 6);
+      const y = 140 - (d.value / maxVal) * 100;
+      return { x, y, value: d.value, label: d.label };
+    });
+    
+    const linePath = points.map((p, idx) => `${idx === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+    const areaPath = points.length > 0 
+      ? `${linePath} L ${points[points.length - 1].x} 140 L ${points[0].x} 140 Z`
+      : "";
+      
+    return { points, linePath, areaPath, maxVal };
+  };
+
   // Create Mock table in Emulator
   const handleCreateEmulatorTable = async () => {
     try {
@@ -641,22 +696,72 @@ export default function App() {
             {/* Custom SVG Charts */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '2rem' }}>
               <div className="table-container" style={{ padding: '1.5rem' }}>
-                <h3 className="table-title" style={{ marginBottom: '1rem' }}>Total Ingested Rows Over Time</h3>
-                <div className="custom-bar-chart">
-                  <div className="chart-bar-container">
-                    <div className="chart-bar" style={{ height: '30%' }}></div>
-                    <span className="chart-label">Mon</span>
-                  </div>
-                  <div className="chart-bar-container">
-                    <div className="chart-bar" style={{ height: '55%' }}></div>
-                    <span className="chart-label">Tue</span>
-                  </div>
-                  <div className="chart-bar-container">
-                    <div className="chart-bar" style={{ height: '80%' }}></div>
-                    <span className="chart-label">Wed (Today)</span>
-                  </div>
+                <h3 className="table-title" style={{ marginBottom: '1rem' }}>Ingestion Executions (Last 7 Days)</h3>
+                <div style={{ height: '220px', position: 'relative', marginTop: '1rem' }}>
+                  {jobs.length === 0 ? (
+                    <div style={{ 
+                      height: '100%', 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'center', 
+                      flexDirection: 'column',
+                      color: 'var(--text-muted)',
+                      fontSize: '0.9rem',
+                      border: '1px dashed var(--border-color)',
+                      borderRadius: '0.5rem',
+                      backgroundColor: 'rgba(255, 255, 255, 0.02)'
+                    }}>
+                      <div style={{ marginBottom: '0.5rem', fontSize: '1.2rem' }}>📈</div>
+                      <div>No ingestion jobs recorded yet.</div>
+                      <div style={{ fontSize: '0.75rem', marginTop: '0.25rem' }}>Line chart will populate as data is loaded.</div>
+                    </div>
+                  ) : (() => {
+                    const { points, linePath, areaPath, maxVal } = getWfChartPath();
+                    return (
+                      <svg width="100%" height="100%" viewBox="0 0 460 200" preserveAspectRatio="none">
+                        <defs>
+                          <linearGradient id="chart-area-grad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.25" />
+                            <stop offset="100%" stopColor="var(--primary)" stopOpacity="0.00" />
+                          </linearGradient>
+                        </defs>
+                        
+                        {/* Grid lines */}
+                        <line x1="45" y1="40" x2="430" y2="40" stroke="var(--border-color)" strokeDasharray="3,3" />
+                        <line x1="45" y1="90" x2="430" y2="90" stroke="var(--border-color)" strokeDasharray="3,3" />
+                        <line x1="45" y1="140" x2="430" y2="140" stroke="var(--border-color)" />
+                        
+                        {/* Y-Axis Value Labels */}
+                        <text x="35" y="44" textAnchor="end" fill="var(--text-muted)" fontSize="10">{Math.round(maxVal)}</text>
+                        <text x="35" y="94" textAnchor="end" fill="var(--text-muted)" fontSize="10">{Math.round(maxVal / 2)}</text>
+                        <text x="35" y="144" textAnchor="end" fill="var(--text-muted)" fontSize="10">0</text>
+                        
+                        {/* Area Fill */}
+                        {areaPath && <path d={areaPath} fill="url(#chart-area-grad)" />}
+                        
+                        {/* Line Path */}
+                        {linePath && <path d={linePath} fill="none" stroke="var(--primary)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />}
+                        
+                        {/* Data points (circles) & values */}
+                        {points.map((p, idx) => (
+                          <g key={idx}>
+                            <circle cx={p.x} cy={p.y} r="4" fill="var(--primary)" stroke="var(--bg-primary)" strokeWidth="1.5" />
+                            {p.value > 0 && (
+                              <text x={p.x} y={p.y - 8} textAnchor="middle" fill="var(--text-primary)" fontSize="9" fontWeight="600">
+                                {p.value}
+                              </text>
+                            )}
+                            {/* X-Axis labels */}
+                            <text x={p.x} y="165" textAnchor="middle" fill="var(--text-secondary)" fontSize="9">
+                              {p.label}
+                            </text>
+                          </g>
+                        ))}
+                      </svg>
+                    );
+                  })()}
                 </div>
-                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.75rem' }}>
                   Active databases loaded: <b>{stats?.inserted_rows || 0}</b> rows total.
                 </p>
               </div>
