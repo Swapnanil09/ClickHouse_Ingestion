@@ -40,7 +40,7 @@ class Settings(BaseSettings):
     MICROSOFT_CLIENT_ID: str = "mock-client-id-12345"
     MICROSOFT_CLIENT_SECRET: str = "mock-client-secret-12345"
     MICROSOFT_TENANT_ID: str = "common"
-    MICROSOFT_REDIRECT_URI: str = "http://localhost:8000/api/auth/microsoft/callback"
+    MICROSOFT_REDIRECT_URI: str = "http://localhost:8081/api/auth/microsoft/callback"
     
     class Config:
         env_file = ".env"

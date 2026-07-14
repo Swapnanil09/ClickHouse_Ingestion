@@ -24,7 +24,7 @@ services:
       dockerfile: Dockerfile
     container_name: ingestion_backend_api
     ports:
-      - "8000:8000"
+      - "8081:8081"
     environment:
       - DATABASE_URL=postgresql://pguser:pgpassword@postgres:5432/ingestion_metadata
       - CLICKHOUSE_HOST=emulated # Default to emulated. Change to real IP in production.

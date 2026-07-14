@@ -230,7 +230,7 @@ services:
   backend:
     build: ./backend
     ports:
-      - "8000:8000"
+      - "8081:8081"
     environment:
       - DATABASE_URL=postgresql://pguser:pgpassword@postgres:5432/ingestion_metadata
       - CLICKHOUSE_HOST=clickhouse
@@ -274,7 +274,7 @@ server {
 
     # Backend redirection
     location /api {
-        proxy_pass http://127.0.0.1:8000;
+        proxy_pass http://127.0.0.1:8081;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -322,14 +322,14 @@ To avoid manually building Microsoft Power Automate flows, the Ingestion Gateway
 ### 9.2 Channel B: Direct Microsoft Graph API Poller (Auto-Authentication)
 *   **Mechanism**: The operator signs in directly via their Microsoft Account on the dashboard. The backend obtains an OAuth 2.0 access/refresh token and automatically polls the user's Office 365 Inbox using official MS Graph API calls.
 *   **Configuration**: Register an Application in the **Azure Active Directory Portal (App Registrations)**:
-    1.  Add Redirect URI: `http://localhost:8000/api/auth/microsoft/callback`.
+    1.  Add Redirect URI: `http://localhost:8081/api/auth/microsoft/callback`.
     2.  Grant API Permissions: `Mail.ReadWrite`, `offline_access`, `User.Read`.
     3.  Set the following environment variables in `.env`:
         ```ini
         MICROSOFT_CLIENT_ID=your-azure-app-client-id
         MICROSOFT_CLIENT_SECRET=your-azure-app-client-secret
         MICROSOFT_TENANT_ID=common
-        MICROSOFT_REDIRECT_URI=http://localhost:8000/api/auth/microsoft/callback
+        MICROSOFT_REDIRECT_URI=http://localhost:8081/api/auth/microsoft/callback
         ```
 *   **Operation**: Click **Connect Microsoft Account** on the dashboard. Once authorized, the background Graph Poller automatically scans for unread emails, parses headers, downloads matching attachments, and starts the pipeline.
 

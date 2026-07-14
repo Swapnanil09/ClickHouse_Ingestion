@@ -27,7 +27,7 @@ The diagram below outlines the communication path of the data payload and reconc
 |  (Proxies Public -> localhost)    |
 +-----------------+-----------------+
                   |
-                  ▼ (localhost:8000 redirect)
+                  ▼ (localhost:8081 redirect)
 +-----------------+-----------------+
 |     FastAPI Backend Application   |
 |  - Creates Ingestion Job          |
@@ -56,7 +56,7 @@ The diagram below outlines the communication path of the data payload and reconc
 ### Step 2.1: Bootstrap the Local Server
 1.  Navigate to the repository root directory.
 2.  Double-click `run_prototype.bat` to launch the stack on Windows. This automatically sets up the Python virtual environment, installs backend/frontend packages, and launches both services:
-    *   **FastAPI Backend API**: `http://127.0.0.1:8000`
+    *   **FastAPI Backend API**: `http://127.0.0.1:8081`
     *   **Dashboard Frontend**: `http://localhost:5173`
 
 ### Step 2.2: Set Up the Ngrok Tunnel Gateway
@@ -64,7 +64,7 @@ Because Microsoft Power Automate runs in the cloud, it cannot access your local 
 1.  Download **[ngrok](https://ngrok.com/)**.
 2.  Open a terminal window and run:
     ```powershell
-    ngrok http 8000
+    ngrok http 8081
     ```
 3.  Copy the secure HTTPS URL from the terminal output (e.g. `https://12ab-34-56-78-90.ngrok-free.app`). Let's refer to this as your **`[TUNNEL_URL]`**.
 

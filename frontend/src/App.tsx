@@ -4,7 +4,7 @@ import {
   RefreshCw, LogOut, CheckCircle, XCircle, AlertTriangle, Key, ChevronRight, X, Sun, Moon
 } from 'lucide-react';
 
-const API_BASE = "http://127.0.0.1:8000/api";
+const API_BASE = "http://127.0.0.1:8081/api";
 
 export default function App() {
   const [token, setToken] = useState<string | null>(localStorage.getItem("token"));
@@ -1172,7 +1172,7 @@ export default function App() {
                   <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
                     No Microsoft Account currently connected. Click the button to authorize access.
                   </div>
-                  <button className="btn btn-primary" onClick={() => { window.location.href = "http://localhost:8000/api/auth/microsoft/login"; }}>
+                  <button className="btn btn-primary" onClick={() => { window.location.href = "http://localhost:8081/api/auth/microsoft/login"; }}>
                     Connect Microsoft Account
                   </button>
                 </div>
