@@ -32,7 +32,7 @@ def get_jobs(
     if target_table:
         query = query.filter(IngestionJob.target_table == target_table)
         
-    return query.order_by(IngestionJob.created_at.desc()).all()
+    return query.order_by(IngestionJob.updated_at.desc()).all()
 
 @router.get("/overview/stats")
 def get_overview_stats(db: Session = Depends(get_db), current_user: Any = Depends(get_current_user)):
@@ -65,7 +65,7 @@ def get_overview_stats(db: Session = Depends(get_db), current_user: Any = Depend
     reasons_list = [{"reason": row[0], "count": row[1]} for row in failure_reasons]
     
     # Recent jobs for dashboard table
-    recent_jobs = db.query(IngestionJob).order_by(IngestionJob.created_at.desc()).limit(5).all()
+    recent_jobs = db.query(IngestionJob).order_by(IngestionJob.updated_at.desc()).limit(5).all()
     recent_jobs_schemas = [IngestionJobResponse.from_orm(job) for job in recent_jobs]
     
     return {
